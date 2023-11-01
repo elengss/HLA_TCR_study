@@ -1,0 +1,65 @@
+#### this is a function that does HLA local manhattan plot directly on plink output (need to uncomment the first line of the file so the header can be read in
+#### example file is in sample_files folder
+
+library(qqman)                                                                   
+
+getplot<-function(x){
+matrix(nrow=0,ncol=4)->allmanh;                                                                                                   
+x[which(x$TEST=="ADD"),]->x2;
+x2[which(x2$CHROM!="MT"),]->x3; 
+x3[which(x3$CHROM!="X"),]->x4;    
+x4[which(x4$CHROM!="XY"),]->x5;    
+data.frame(x5$ID,as.numeric(x5$CHROM),as.numeric(as.character(x5$POS)),as.numeric(as.character(x5$BETA)),as.numeric(as.character(x5$P)))->manh2;
+data.frame(x5$ID,as.numeric(x5$CHROM),as.numeric(as.character(x5$POS)),as.numeric(as.character(x5$P)))->manh;
+
+manh->allmanh
+colnames(allmanh)<-c("SNP","CHR","BP","P");
+allmanh[which(allmanh$CHR!="0"),]->tmp3;
+na.omit(tmp3)->tmp3;
+
+tmp3->data_no_na
+
+#Define startswith function
+startswith <- function(string, prefix) {
+  substr(string, 1, nchar(prefix)) == prefix
+}
+
+#create a column to use for labelling based on GRCh37
+data_no_na$colour_label <- ifelse(data_no_na$BP >= 29909037 & data_no_na$BP <= 29917349, "HLA-A",
+                               ifelse(data_no_na$BP >= 31321649 & data_no_na$BP <= 31334844, "HLA-B",
+                                      ifelse(data_no_na$BP >= 31236526 & data_no_na$BP <= 31239907, "HLA-C",
+                                             ifelse(data_no_na$BP >= 32595956 & data_no_na$BP <= 32614839, "HLA-DQA1",
+                                                    ifelse(data_no_na$BP >= 32627244 & data_no_na$BP <= 32636160, "HLA-DQB1",
+                                                           ifelse(data_no_na$BP >= 33032346 & data_no_na$BP <= 33048552, "HLA-DPA1",
+                                                                  ifelse(data_no_na$BP >= 33043767 & data_no_na$BP <= 33057473, "HLA-DPB1",
+                                                                         ifelse(data_no_na$BP >= 32545679 & data_no_na$BP <= 32557625, "HLA-DRB1", "others"))))))))
+
+#create a column to use for labelling
+data_no_na$shape_label <-ifelse(startswith(data_no_na$SNP, "HLA"), "HLA",
+                                ifelse(startswith(data_no_na$SNP, "SNP"), "SNP",
+                                       ifelse(startswith(data_no_na$SNP, "AA"), "AA","SNP")))
+
+#Manhattan plot  
+
+legend_colour<-""
+legend_shape<-"Variant Type"
+
+out<- ggplot(data_no_na) +
+  geom_point(aes(x=BP,y=-log10(P), colour=colour_label, shape=shape_label)) +
+  theme_classic() +
+  scale_color_manual(legend_colour,values = c("#FC4E07", "#008000", "#808080" ,"#386CB0", "#E7B800", "blue","#CC00FFFF", "#00AFBB","black"))+scale_shape_manual(legend_shape,values=c(15,17,16))+
+  labs(x = "chromosome 6 coordinates") + scale_x_continuous(labels = scales::comma)
+return(out)}
+
+##### here is how it can be used to plot
+
+library(ggplot2)
+read.table("c1b_inrt.TRBV19*00.glm.linear",header=T)->x;               
+getplot(x)->out2
+ggsave(
+  "TRBV19_HLA.png",
+  plot=out2,
+  width = 10,
+  height = 10,
+  dpi = 400
+)
