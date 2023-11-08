@@ -1,0 +1,22 @@
+load("dosage_all_aa_hla_snp.Rd")
+
+read.table("c1b_inrt_250_tmm",header=T)->pheno
+dosage[,match(pheno[,2],colnames(dosage))]->dosagenew
+unlist(dosagenew["HLA_B*44",])->hla
+as.character(round(as.numeric(hla)))->hla2
+pheno[,"TRBV19.00"]->pheno2
+
+data.frame(pheno2,hla2)->df
+pdf("phenotype_vs_hla_box_plot.pdf")
+boxplot(pheno2 ~ hla2, data = df, col = "white")
+# Points
+stripchart(pheno2 ~ hla2,
+           data = df,
+           method = "jitter",
+           pch = 19,
+           col = 2:4,
+           vertical = TRUE,
+           add = TRUE)
+dev.off()
+
+
