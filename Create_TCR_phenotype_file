@@ -1,57 +1,80 @@
+#### this code creates a TCR phenotype file to be used in plink from mixcr output
 
-load("/well/todd/users/xnc303/bpf/2.mixcr/batch2/bigmat_one_C1.Rd")
-bigmat->bigmat_b2
-colnames(bigmat_b2)[1]<-"sample_id"
-load("/well/todd/users/xnc303/bpf/2.mixcr/C1/redo/bigmat_one.Rd")
-colnames(bigmat)[1]<-"sample_id"
-rbind(bigmat,bigmat_b2)->bmall
-bmall->bigmat
+### MixCR output file in an object 'bigmat' looks like this
 
+sample_id cloneCount cloneFraction chains    bestVHit
+1              262_C1_CD8_None       1309    0.06228291    TRB   TRBV19*00
+2              262_C1_CD8_None       1268    0.06033211    TRB   TRBV27*00
+3              262_C1_CD8_None       1210    0.05757244    TRB TRBV20-1*00
+4              262_C1_CD8_None        784    0.03730314    TRB   TRBV27*00
+5              262_C1_CD8_None        764    0.03635152    TRA   TRAV20*00
+6              262_C1_CD8_None        503    0.02393301    TRA   TRAV19*00
+    bestJHit bestDHit bestCHit                                         nSeqCDR3
+1 TRBJ2-1*00 TRBD2*00 TRBC2*00       TGTGCCAGTAGTATAGATGGAGGGAAGAATGAGCAGTTCTTC
+2 TRBJ2-5*00 TRBD1*00 TRBC2*00       TGTGCCAGCAGTTTCCGAAGGGGTTTAGAGACCCAGTACTTC
+3 TRBJ2-1*00 TRBD1*00 TRBC2*00    TGCAGTGCAACGGACAGGGGTCAAGGGGCCAATGAGCAGTTCTTC
+4 TRBJ2-1*00 TRBD2*00 TRBC2*00 TGTGCCAGCAGTTTAGTAGCGGGGGGCCCCTACAATGAGCAGTTCTTC
+5  TRAJ23*00           TRAC*00 TGTGCTGTGCAGGCGGGGATTTATAACCAGGGAGGAAAGCTTATCTTC
+6  TRAJ27*00           TRAC*00    TGTGCTCTGAGTGAGGCGCTTACCAATGCAGGCAAATCAACCTTT
+         aaSeqCDR3 lengthOfCDR3
+1   CASSIDGGKNEQFF           42
+2   CASSFRRGLETQYF           42
+3  CSATDRGQGANEQFF           45
+4 CASSLVAGGPYNEQFF           48
+5 CAVQAGIYNQGGKLIF           48
+6  CALSEALTNAGKSTF           45
+                                                                                       id
+1       TRBV19*00 TRBJ2-1*00 TRBD2*00 TRBC2*00 TGTGCCAGTAGTATAGATGGAGGGAAGAATGAGCAGTTCTTC
+2       TRBV27*00 TRBJ2-5*00 TRBD1*00 TRBC2*00 TGTGCCAGCAGTTTCCGAAGGGGTTTAGAGACCCAGTACTTC
+3  TRBV20-1*00 TRBJ2-1*00 TRBD1*00 TRBC2*00 TGCAGTGCAACGGACAGGGGTCAAGGGGCCAATGAGCAGTTCTTC
+4 TRBV27*00 TRBJ2-1*00 TRBD2*00 TRBC2*00 TGTGCCAGCAGTTTAGTAGCGGGGGGCCCCTACAATGAGCAGTTCTTC
+5           TRAV20*00 TRAJ23*00  TRAC*00 TGTGCTGTGCAGGCGGGGATTTATAACCAGGGAGGAAAGCTTATCTTC
+6              TRAV19*00 TRAJ27*00  TRAC*00 TGTGCTCTGAGTGAGGCGCTTACCAATGCAGGCAAATCAACCTTT
 
 library(limma)
 library(edgeR)
 
+#### this is a function to perform inverse normal rank transformation (INRT)
 inormal <- function(x) qnorm((rank(x, na.last = "keep") - 0.5) / sum(!is.na(x)))
-#### get prod and b
+#### get productive chains and beta chains
 bigmat[which(bigmat$chains=="TRB"),]->bigmatb
 bigmatb[!grepl("_",bigmatb$aaSeqCDR3),]->bm
 unique(bm$id)->tn
-read.table("/well/todd/users/xnc303/bpf/For_Ben/redo_6aug/merged_keep_28aug_C1.fam")->fam2
 
-fam2$V2->tmp
+#### this reads in the samples fam file so as to match up the samples with the TCR ID
+read.table("samples.fam")->fam
+fam$V2->tmp
 sapply(strsplit(tmp,"_"),"[[",1)->id
-matrix(0,nrow=nrow(fam2),ncol=length(tn))->phen
+matrix(0,nrow=nrow(fam),ncol=length(tn))->phen
 
 sapply(strsplit(bm$id," "),"[[",1)->trbv
 sapply(strsplit(bm[,1],"_"),"[[",1)->bm[,1]
 cbind(trbv,bm)->bmt
 unique(trbv)->uvb
 
-######## MAKE A MATRIX TO NORMALISE HERE
+######## This creates a count of number of collapsed TRBV genes per sample
 matrix(0,nrow=length(id),ncol=length(uvb))->phen
 for(i in 1:length(uvb)){
 ###for(i in 1:10){
 bmt[which(bmt[,1]==uvb[i]),]->y
-for(j in 1:nrow(fam2)){
+for(j in 1:nrow(fam)){
 y[which(y[,2]==id[j]),]->y2
 length(which(y2$cloneCount>0))->phen[j,i]}
 print(i)}
 colnames(phen)<-uvb
-rownames(phen)<-fam2[,2]
+rownames(phen)<-fam[,2]
 
 
-#### get only > 70%
-
+#### This filters out TRBV genes present in less than 70% of samples
 vec0<-vector()
 for(i in 1:ncol(phen)){
 length(which(phen[,i]==0))->vec0[i]}
 phen[,which(vec0<(0.3*(nrow(phen))))]->phen2
 
-read.csv("/well/todd/users/xnc303/bpf/metadata/fullMetadata2.csv")->fm
-read.table("/well/todd/users/xnc303/bpf/For_Ben/redo_6aug/merged_keep_28aug_C1.fam")->fam
+##### reads in meta data to create covariate file
+read.csv("fullMetadata2.csv")->fm
 sapply(strsplit(fam[,2],"_"),"[[",1)->id
 fm[match(id,fm[,1]),]->fmm
-
 read.csv("/well/todd/users/xnc303/bpf/metadata/batchSequencing_HDC1C2.csv")->batch
 batch[grep("C1",batch[,1]),]->batchC1
 batchC1->batchC1new
@@ -59,84 +82,36 @@ for(i in 1:nrow(batchC1)){
 LETTERS[batchC1$batch[i]]->batchC1new$batch[i]}
 sapply(strsplit(batchC1new[,1],"_"),"[[",1)->tmp
 batchC1new[match(id,tmp),"batch"]->bm
-
-#### assign the new ids to new batch
-
 sapply(strsplit(bigmat_b2[,1],"_"),"[[",1)->b2id
 unique(b2id)->ub2id
 bm[which(is.na(match(id,ub2id))==F)]<-"N"
 bm[which(is.na(bm)==T)]<-"P"
 
-#### correct any NA left after that
-#### then match up the covariates that are missing
-
+#### performs TMM and batch correction on matrix then normalises it with INRT
 t(phen2)->tphen
 y <- DGEList(counts=tphen)
 y <- calcNormFactors(y, method = "TMM")
 tmm_result <- cpm(y)
 removeBatchEffect(as.matrix(tmm_result),bm)->tmm_result_batch
-
 t(tmm_result_batch)->tmm_result_t
 inormal <- function(x) qnorm((rank(x, na.last = "keep") - 0.5) / sum(!is.na(x)))
 apply(tmm_result_t,2,inormal) -> tmm_norm
-
-cbind(fam2[,1:2],tmm_norm)->clone1_b_inrt
-
+cbind(fam[,1:2],tmm_norm)->clone1_b_inrt
 colnames(clone1_b_inrt)[1:2]<-c("FID","IID")
+### writes out the phenotype file
 write.table(clone1_b_inrt,file="c1b_inrt_250_tmm",col.names=T,row.names=F,quote=F,sep="\t")
 
-read.table("c1b_inrt_250_tmm",header=T)->clone1_b_inrt
+#### perform PCA on matrix
 clone1_b_inrt[,3:ncol(clone1_b_inrt)]->y
 prcomp(y,scale=T,center=T)->res
 write.table(res$x[,1:3],file="res3_250_beta_tmm.txt",quote=F,col.names=F,row.names=F)
 
-
-myplot + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-panel.background = element_blank(), axis.line = element_line(colour = "black"))
-
-#### check batch against PC
+#### plot PCs coloured by batch
 bm->batch
 data.frame(fmm,batch)->meta2
 library(ggfortify)
-pdf("pca_batch_250.pdf")
+pdf("pca_coloured_by_batch.pdf")
 autoplot(res,data = meta2,colour = 'batch')+theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
 panel.background = element_blank(), axis.line = element_line(colour = "black"))
 dev.off()
 
-read.csv("extraSamplesEsther.csv",header=T)->x
-read.csv("/well/todd/users/xnc303/bpf/metadata/fullMetadata2.csv")->fm
-read.table("/well/todd/users/xnc303/bpf/For_Ben/redo_6aug/merged_keep_28aug_C1.fam")->fam
-sapply(strsplit(fam[,2],"_"),"[[",1)->id
-fm[match(id,fm[,1]),]->meta2
-
-as.matrix(meta2)->meta2
-which(is.na(meta2[,"age"])==T)->idx
-for(i in 1:length(idx)){
-match(id[idx[i]],id)->temp
-x[match(id[idx[i]],x[,1]),"age"]->meta2[temp,"age"]
-}
-
-as.matrix(meta2)->meta2
-which(is.na(meta2[,"cancer"])==T)->idx
-for(i in 1:length(idx)){
-match(id[idx[i]],id)->temp
-x[match(id[idx[i]],x[,1]),"cancer"]->meta2[temp,"cancer"]
-}
-meta2["265","cancer"]<-"Melanoma"
-
-sexvec<-vector()
-sexvec[which(x$sex==2)]<-"F"
-sexvec[which(x$sex==1)]<-"M"
-
-as.matrix(meta2)->meta2
-which(is.na(meta2[,"sex"])==T)->idx
-for(i in 1:length(idx)){
-match(id[idx[i]],id)->temp
-sexvec[match(id[idx[i]],x[,1])]->meta2[temp,"sex"]
-}
-
-data.frame(meta2[,"age"],meta2[,"sex"],meta2[,"cancer"])->tmp
-read.table("/well/todd/users/xnc303/bpf/2.mixcr/batch2/res3_250_beta_tmm.txt",header=F)->res
-read.table("/well/todd/users/xnc303/bpf/For_Ben/redo_6aug/merged_keep_28aug_C1.eigenvec",header=F)->ei
-data.frame(ei[,1:4],res[,1:2],tmp)->cov
-write.table(cov,file="cov_250_beta_tmm",sep="\t",col.names=F,row.names=F,quote=F)
