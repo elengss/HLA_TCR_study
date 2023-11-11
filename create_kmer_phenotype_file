@@ -1,0 +1,112 @@
+library(limma)
+library(edgeR)
+
+### this starts with the same 'bigmat' object described in the create TCR phenotype file - ie. MIXCR output
+
+bigmat[which(bigmat$chains=="TRB"),]->bigmatb
+bigmatb[!grepl("_",bigmatb$aaSeqCDR3),]->bm
+unique(bm$id)->tn
+read.table("sample.fam")->fam2
+
+fam2$V2->tmp
+sapply(strsplit(tmp,"_"),"[[",1)->id
+
+### limit AA to 12-18
+bm[which(bm$lengthOfCDR3>33),]->tmp
+tmp[which(tmp$lengthOfCDR3<57),]->bm4
+sapply(strsplit(bm4[,1],"_"),"[[",1)->bmid
+for(j in 1:nrow(fam2)){
+bm4[which(bmid==id[j]),]->bm3
+
+klist<-list()
+for(i in 1:nrow(bm3)){
+vector()->cv
+for(k in 1:(nchar(bm3$aaSeqCDR[i])-6)){
+substr(bm3$aaSeqCDR[i],k,k+6)->cv[k]
+}
+cv->klist[[i]]}
+
+#### get all the kmers then make a matrix
+vector()->allk
+for(i in 1:length(klist)){
+c(allk,klist[[i]])->allk}
+unique(allk)->uk
+matrix(nrow=nrow(bm3),ncol=length(uk))->kmat
+uk->colnames(kmat)
+for(i in 1:length(klist)){
+klist[[i]]->temp
+for(k in 1:length(temp)){
+kmat[i,which(colnames(kmat)==temp[k])]<-1}}
+kmat[is.na(kmat)]<-0
+save(kmat,file=paste("kmat_",j,".Rd",sep=""))
+print(j)}
+
+list()->cslist
+for(j in 1:length(id)){
+load(paste("kmat_",j,".Rd",sep=""))
+colSums(kmat)->cs
+cs->cslist[[j]]
+print(j)}
+
+allk<-vector()
+for(j in 1:length(cslist)){
+c(names(cslist[[j]]),allk)->allk
+print(j)}
+
+### need to restrict
+table(allk)->tak
+names(tak)[which(tak>(length(id)*0.2))]->small
+small[grep("\\*",small,invert=T)]->small2
+
+matrix(ncol=length(small2),nrow=250)->allkmat
+rownames(allkmat)<-id
+colnames(allkmat)<-small2
+for(i in 1:length(cslist)){
+cslist[[i]]->temp
+for(k in 1:length(temp)){
+allkmat[i,which(colnames(allkmat)==names(temp)[k])]<-temp[k]}
+print(i)}
+
+allkmat[is.na(allkmat)]<-0
+save(allkmat,file="allkmat_beta_250_7mer.Rd")
+
+#### performs TMM and batch correction
+
+read.csv("batchSequencing_HDC1C2.csv")->batch
+batch[grep("C1",batch[,1]),]->batchC1
+batchC1->batchC1new
+for(i in 1:nrow(batchC1)){
+LETTERS[batchC1$batch[i]]->batchC1new$batch[i]}
+sapply(strsplit(batchC1new[,1],"_"),"[[",1)->tmp
+batchC1new[match(id,tmp),"batch"]->bm
+
+#### assign the new ids to new batch
+
+sapply(strsplit(bigmat_b2[,1],"_"),"[[",1)->b2id
+unique(b2id)->ub2id
+bm[which(is.na(match(id,ub2id))==F)]<-"N"
+bm[which(is.na(bm)==T)]<-"P"
+t(allkmat)->tphen
+y <- DGEList(counts=tphen)
+y <- calcNormFactors(y, method = "TMM")
+tmm_result <- cpm(y)
+removeBatchEffect(as.matrix(tmm_result),bm)->tmm_result_batch
+
+t(tmm_result_batch)->tmm_result_t
+inormal <- function(x) qnorm((rank(x, na.last = "keep") - 0.5) / sum(!is.na(x)))
+apply(tmm_result_t,2,inormal) -> tmm_norm
+
+cbind(fam2[,1:2],tmm_norm)->clone1_b_inrt
+colnames(clone1_b_inrt)[1:2]<-c("FID","IID")
+write.table(clone1_b_inrt,file="c1b_inrt_7mer_tmm",col.names=T,row.names=F,quote=F,sep="\t")
+
+#### do PCA on phenotype
+clone1_b_inrt[,3:ncol(clone1_b_inrt)]->y
+prcomp(y,scale=T,center=T)->res
+write.table(res$x[,1:3],file="res3_c1b_7mer_beta_tmm.txt",quote=F,col.names=F,row.names=F)
+
+### create covariate file
+read.table("res3_c1b_7mer_beta_tmm.txt",header=F)->res
+read.table("cov_250_beta_tmm",header=F)->covfile
+res[,1:2]->covfile[,5:6]
+write.table(covfile,file="cov_7mer_beta_tmm",sep="\t",col.names=F,row.names=F,quote=F)
