@@ -1,0 +1,97 @@
+#### load in vector of all cytotoxicity scores calculated from Watson et al
+load("allscores_tcell.Rd")
+orion->orion1
+load("allscores_pbmc.Rd")
+orion->orion2
+load("allscores_cd8.Rd")
+orion->orion3
+rbind(orion1,orion2,orion3)->orion
+orion[,2]->score
+
+### make vectors of our top associations
+c("TRBV19","TRBV9","TRBV5-6","TRBV10-3","TRBV2")->hits
+c("HLA_B*44","HLA_B*07:02","HLA_A*24:02","HLA_DQA1*02","HLA_A*31")->hla
+
+### reads in TCR for each experimental protocol
+read.csv("./CD8_C1_TCELL/obs.csv",header=T)->obs
+match(obs$TCR_TRB1_v_gene,hits)->idx
+obs[which(is.na(idx)==F),]->obs2
+load("dosage_all_aa_hla_snp.Rd")
+gsub("_C1","",obs$Harmonized_ID_y)->temp
+gsub("M_","",temp)->temp2
+gsub("R_","",temp2)->newid
+sapply(strsplit(colnames(dosage),"_"),"[[",1)->cn
+dosage[,match(newid,cn)]->dosagem
+matrix(nrow=0,ncol=ncol(obs))->allmat
+for(i in 1:length(hits)){
+obs[which(unlist(dosagem[hla[i],])>0.95),]->obsm
+obsm[which(obsm$TCR_TRB1_v_gene==hits[i]),]->obsm2
+rbind(obsm2,allmat)->allmat}
+allmat->allmat1
+
+read.csv("./CD8_C1_PBMC/obs.csv",header=T)->obs
+match(obs$TCR_TRB1_v_gene,hits)->idx
+obs[which(is.na(idx)==F),]->obs2
+gsub("_C1","",obs$Harmonized_ID_y)->temp
+gsub("M_","",temp)->temp2
+gsub("R_","",temp2)->newid
+sapply(strsplit(colnames(dosage),"_"),"[[",1)->cn
+dosage[,match(newid,cn)]->dosagem
+matrix(nrow=0,ncol=ncol(obs))->allmat
+for(i in 1:length(hits)){
+obs[which(unlist(dosagem[hla[i],])>0.95),]->obsm
+obsm[which(obsm$TCR_TRB1_v_gene==hits[i]),]->obsm2
+rbind(obsm2,allmat)->allmat}
+allmat->allmat2
+
+
+read.csv("./CD8_C1_CD8/obs.csv",header=T)->obs
+match(obs$TCR_TRB1_v_gene,hits)->idx
+obs[which(is.na(idx)==F),]->obs2
+gsub("_C1","",obs$Harmonized_ID_y)->temp
+gsub("M_","",temp)->temp2
+gsub("R_","",temp2)->newid
+sapply(strsplit(colnames(dosage),"_"),"[[",1)->cn
+dosage[,match(newid,cn)]->dosagem
+matrix(nrow=0,ncol=ncol(obs))->allmat
+for(i in 1:length(hits)){
+obs[which(unlist(dosagem[hla[i],])>0.95),]->obsm
+obsm[which(obsm$TCR_TRB1_v_gene==hits[i]),]->obsm2
+rbind(obsm2,allmat)->allmat}
+allmat->allmat3
+
+rbind(allmat1,allmat2,allmat3)->allmat
+rbind(orion1,orion2,orion3)->orion
+orion[,2]->score
+
+read.csv("./CD8_C1_TCELL/obs.csv",header=T)->obs1
+read.csv("./CD8_C1_PBMC/obs.csv",header=T)->obs2
+read.csv("./CD8_C1_CD8/obs.csv",header=T)->obs3
+rbind(obs1,obs2,obs3)->obs
+c(rep("TCELL",nrow(obs1)),rep("PBMC",nrow(obs2)),rep("CD8",nrow(obs3)))->batch
+
+rep(0,length(score))->matchvec
+match(obs[,2],allmat[,2])->idx
+matchvec[which(is.na(idx)==F)]<-1
+
+data.frame(score,matchvec)->df
+colnames(df)<-c("score","hla_matched")
+
+#### plot cytotoxicity score vs matching
+pdf("cytotoxicity_vs_hla_1nov_top_classical_allele.pdf")
+boxplot(score ~ hla_matched, data = df, col = "white")
+# Points
+stripchart(score ~ hla_matched,
+           data = df,
+           method = "jitter",
+           pch = 19,
+           col = 2:4,
+           vertical = TRUE,
+           add = TRUE)
+dev.off()
+
+#### do LM analysis
+lmer(score~matchvec+(1|batch))->res1
+lmer(score~(1|batch))->res2
+anova(res2,res1)
+summary(res1)$coeff
