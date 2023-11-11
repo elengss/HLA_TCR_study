@@ -1,0 +1,23 @@
+plink2 --bfile hlafile --pheno c1b_inrt_250_tmm --maf 0.01 --mind 0.1 --geno 0.1 --hwe 0.000001 --covar cov_250_beta_tmm --output-min-p 1e-500 --covar-col-nums 3,4,5,6,7,8,9 --covar-variance-standardize --glm --out c1b_inrt
+ls *.linear > allfiles
+
+read.table("/well/todd/users/xnc303/bpf/For_Ben/for_MIS/chr6_merged_keep_28aug_C1.frq",header=T)->frq
+
+matrix(ncol=6,nrow=0) -> allmat
+read.table("allmin", header=T)->all
+for(i in 1:nrow(all)){try({
+read.table(all[i,1],header=T)->x
+print(nrow(x))
+cbind(rep(all[i,1],nrow(x)),x)->x2
+rbind(allmat,x2)->allmat})
+}
+colnames(allmat)<-c("Vgene","SNP","CHR","POS","BETA","P")
+allmat[order(as.numeric(allmat$P)),]->vdj_gwas_cc
+frq[match(vdj_gwas_cc$SNP,frq$SNP),]->frq2
+cbind(vdj_gwas_cc,frq2$MAF)->allmat2
+allmat2[order(as.numeric(allmat2$P)),]->allmat3
+colnames(allmat3)[7]<-"FRQ"
+sapply(strsplit(allmat3[,1],"\\."),"[[",2)->id
+id->allmat3[,1]
+save(allmat3,file="allmat3.Rd")
+write.table(allmat3,file="hla_beta_C1.txt",sep="\t",col.names=T,row.names=F,quote=F)
