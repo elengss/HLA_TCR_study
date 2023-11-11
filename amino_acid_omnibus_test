@@ -1,0 +1,58 @@
+#### load file with dosage of all amino acids
+load("dosage_all_aa.Rd")
+sapply(strsplit(rownames(dosage),"_"),"[",4)->pos
+
+#### load phenotype and covariate files
+read.table("c1b_inrt_250_tmm",header=T)->x
+read.table("cov_250_beta_tmm",header=F)->cov
+x[,3:ncol(x)]->pheno2
+cov[,3:ncol(cov)]->cov2
+cov2[match(x[,2],cov[,2],),]->cov3
+cov3->cov2
+dosage[,match(x[,2],colnames(dosage))]->dosage
+
+### this is performed for each phenotype where k is the index of the phenotype in the file
+pheno2[,k]->temp
+vector()->pv
+unique(pos)->upos
+matrix(nrow=length(upos),ncol=4)->lmmat
+for(i in 1:length(upos)){
+which(pos==upos[i])->idx
+if(length(idx)==1){
+dosage[idx,]->dos2
+data.frame(temp,unlist(dos2),cov2)->cov3
+na.omit(cov3)->cov4
+lm(cov4[,1]~cov4[,2]+V3+V4+V5+V6+V7+V8+V9,data=cov4)->res1
+lm(cov4[,1]~V3+V4+V5+V6+V7+V8+V9,data=cov4)->res2
+summary(res1)$coeff[2,]->lmmat[i,]
+anova(res2,res1)->ano
+ano[["Pr(>F)"]][[2]]->pv[i]} else {
+dosage[idx,]->dos2
+apply(dos2,2,as.numeric)->dos2
+dos2[-which(rowSums(dos2,na.rm=T)==max(rowSums(dos2,na.rm=T))),]->dos3
+if(length(dos3)==nrow(cov2)){
+data.frame(temp,dos3,cov2)->cov3
+na.omit(cov3)->cov4
+lm(cov4[,1]~cov4[,2]+V3+V4+V5+V6+V7+V8+V9,data=cov4)->res1
+lm(cov4[,1]~V3+V4+V5+V6+V7+V8+V9,data=cov4)->res2
+summary(res1)$coeff[2,]->lmmat[i,]
+anova(res2,res1)->ano
+ano[["Pr(>F)"]][[2]]->pv[i]} else{
+data.frame(temp,t(dos3),cov2)->cov3
+na.omit(cov3)->cov4
+lm(cov4[,1]~as.matrix(cov4[,2:(nrow(dos3)+1)])+V3+V4+V5+V6+V7+V8+V9,data=cov4)->res1
+lm(cov4[,1]~V3+V4+V5+V6+V7+V8+V9,data=cov4)->res2
+summary(res1)$coeff[2,]->lmmat[i,]
+anova(res2,res1)->ano
+ano[["Pr(>F)"]][[2]]->pv[i]
+}
+}
+print(i)
+}
+
+upos->rownames(lmmat)
+c("est","se","z","p")->colnames(lmmat)
+### this saves the beta, SE and Z score
+save(lmmat,file="phenotype.lmmat.Rd")
+### this saves the anova p values
+save(pv,file="phenotype.pv.Rd")
