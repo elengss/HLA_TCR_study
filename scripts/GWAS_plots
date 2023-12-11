@@ -1,4 +1,6 @@
 #### plink file has to be read in and a dataframe (df) with SNP, CHR, POS and P value has to be created
+read.table("./Downloads/c1b_inrt.TRBV19*00.glm.linear",comment.char="",header=T)->lin
+data.frame(lin$ID,lin$CHROM,lin$POS,lin$P)->df
 
 #### this does the plot highlighting SNPs in the cis region of the TRBV gene
 colnames(df)<-c("SNP","CHR","BP","P");
