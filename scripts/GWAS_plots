@@ -14,16 +14,3 @@ png("beta_allmh.png",type="cairo")
 manhattan(tmp3, ylim = c(0, 50), cex = 0.6, cex.axis = 0.9, 
     col = c("blue2", "grey3"), highlight=snpsOfInterest, suggestiveline = F, genomewideline = F, chrlabs = c(1:22))
 dev.off()
-
-#### this does the plot highlighting SNPs in the cis region of the TRAV gene
-colnames(df)<-c("SNP","CHR","BP","P");
-df[which(df$CHR!="0"),]->tmp3;
-na.omit(tmp3)->tmp3;
-tmp3[which(tmp3$CHR==14),]->tmp4
-tmp4[which(tmp4$BP>20621904),]->tmp5
-tmp5[which(tmp5$BP<23552132),"SNP"]->snpsOfInterest
-
-png("alpha_allmh.png",type="cairo")
-manhattan(tmp3, ylim = c(0, 30), cex = 0.6, cex.axis = 0.9, 
-    col = c("blue2", "grey3"), highlight=snpsOfInterest, suggestiveline = F, genomewideline = F, chrlabs = c(1:22))
-dev.off()
