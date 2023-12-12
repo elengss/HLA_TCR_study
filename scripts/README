@@ -1,0 +1,25 @@
+Here is a description of the scripts in the scripts directory
+
+1. Box_Plots
+This generates box plots of V gene usage vs HLA allele dosage
+
+2. Create_TCR_phenotype_file
+This generates our V gene TCR phenotype file (from MixCR output) which we use for input into plink
+
+3. GWAS plots
+This generates Manhattan plots from plink output
+
+4. HLA_plots
+This generates locusplots from plink output
+
+5. Amino acid omnibus test
+This performs omnibus test on amino acids in each HLA position with V gene usage as the outcome variable
+
+6. Create_kmer_phenotype_file
+This generates our Kmer TCR phenotype file (from MixCR output) which we use for input into plink
+
+7. Cytotoxicity
+This generates our Kmer TCR phenotype file (from MixCR output) which we use for input into plink
+
+8. Plink
+This is an example of the plink commands we used to run the analysis
