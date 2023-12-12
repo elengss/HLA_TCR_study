@@ -1,6 +1,6 @@
 #### this code creates a TCR phenotype file to be used in plink from mixcr output
 
-### MixCR output file in an object 'bigmat' looks like this
+### MixCR output file in an R object 'bigmat' looks like this. This contains all clones from all samples concatenated together in one dataframe
 
 sample_id cloneCount cloneFraction chains    bestVHit
 1              262_C1_CD8_None       1309    0.06228291    TRB   TRBV19*00
